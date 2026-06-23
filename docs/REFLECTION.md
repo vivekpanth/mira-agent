@@ -23,9 +23,9 @@ disclosures — **never leaves the student's machine.** This matters for learnin
   actually deploy — so the learning benefit reaches students instead of stalling in review.
 
 We pair this with **AWS where the cloud genuinely adds value**: Amazon Polly for a natural neural
-client voice and Amazon Rekognition for objective eye-contact analysis. Amazon Bedrock is fully
-wired and switchable with one environment variable — so the *hybrid* design is a deliberate
-data-sovereignty choice, not a limitation.
+client voice and Amazon Rekognition for objective eye-contact analysis. Keeping the conversation
+itself on-device — while using AWS for speech and vision — is a deliberate data-sovereignty
+choice, not a limitation.
 
 ## 3. Evidence-based feedback closes the reflective loop
 Practice without feedback plateaus. After each session MIRA produces a coaching report where

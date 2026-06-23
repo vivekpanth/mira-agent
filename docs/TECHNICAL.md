@@ -34,10 +34,8 @@ Each student utterance hits `POST /api/converse`. We build a system prompt from 
 (role, situation, emotion, hidden concern) and send it to a **local LLM (Llama 3.1 8B via Ollama,
 Gemma fallback)**. The client replies in character, and its **mood shifts** based on the student's
 empathy — softening with rapport, hardening if dismissed — which re-colours the lighting and
-animates the avatar. **No conversation data leaves the machine.**
-
-`LLM_PROVIDER` switches this layer between `local` (default, private) and `bedrock` (Amazon
-Bedrock / Claude, fully wired) with one environment variable.
+animates the avatar. **No conversation data leaves the machine** — and speech-to-text is done
+in-browser (Web Speech API), so the student's audio isn't shipped to a cloud transcriber either.
 
 ## The coaching report — `POST /api/analyze`
 - **Deterministic metrics** (`src/lib/metrics.ts`): talk-ratio, fillers, words-per-minute,
@@ -56,8 +54,8 @@ student (camera feed on an in-scene monitor), captions, and both voices — down
 ## Architecture principles
 - **Service layer with Mock / Real / Local switches** (`src/services/*`) — every external call is
   swappable, so the app runs fully on `localhost` with no cloud account, then upgrades to live AWS.
-- **AWS services used live:** Amazon **Polly** (voice) and Amazon **Rekognition** (eye contact);
-  Amazon **Bedrock** wired and one flag away.
+- **AWS services used live:** Amazon **Polly** (neural client voice) and Amazon **Rekognition**
+  (eye-contact face-pose analysis).
 - **Frozen type contracts** (`src/types.ts`) let the team build screens, services, and the 3D
   scene in parallel without breaking each other.
 - **Stack:** Next.js (App Router) + TypeScript (strict) + Tailwind + React Three Fiber.
