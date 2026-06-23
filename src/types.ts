@@ -7,7 +7,8 @@ export type Difficulty = 'Easy' | 'Moderate' | 'Hard';
 
 /** Parsed from the student's free-text scenario by /api/scenario. Drives the environment. */
 export interface Persona {
-  role: string;            // e.g. "Patient — Margaret, 58"
+  role: string;            // the CLIENT you talk to, e.g. "Patient — Margaret, 58"
+  userRole?: string;       // the role YOU play, e.g. "IT support officer" (derived from setting)
   scene: string;           // e.g. "Presenting with chest pain"
   emotion: string;         // e.g. "Anxious, guarded"
   difficulty: Difficulty;

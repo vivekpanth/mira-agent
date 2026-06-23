@@ -101,9 +101,12 @@ function extractName(text: string, fallback: string): string {
   const explicit = text.match(/\b(?:name(?:d|'s| is)?|called)\s+([A-Z][a-z]+)/);
   if (explicit?.[1]) return explicit[1];
 
-  // 2) Title + name: "Mr Smith", "Dr. Lee", "Ms Chen".
-  const titled = text.match(/\b(?:mr|mrs|ms|miss|dr|prof)\.?\s+([A-Z][a-z]+)/i);
-  if (titled?.[1]) return titled[1].charAt(0).toUpperCase() + titled[1].slice(1);
+  // 2) Title + name: "Mr Smith", "Dr. Lee", "Ms Chen". The title is matched
+  // case-insensitively, but the NAME must be genuinely capitalised in the source
+  // (no /i flag on the capture) — otherwise the verb "miss" in "miss their wages"
+  // is read as the honorific "Miss" and "their" becomes the name "Their".
+  const titled = text.match(/\b(?:[Mm]r|[Mm]rs|[Mm]s|[Mm]iss|[Dd]r|[Pp]rof)\.?\s+([A-Z][a-z]+)/);
+  if (titled?.[1] && !NAME_STOPWORDS.has(titled[1].toLowerCase())) return titled[1];
 
   // 3) First capitalised word that isn't a sentence-starter / common word.
   for (const token of text.match(/\b[A-Z][a-z]+\b/g) ?? []) {
@@ -113,12 +116,19 @@ function extractName(text: string, fallback: string): string {
   return fallback;
 }
 
+/** Optional explicit picks from the UI that override the keyword inference. */
+export interface ScenarioOverrides {
+  emotion?: ClientEmotion;
+  difficulty?: ScenarioConfig["difficulty"];
+}
+
 /** Map free-text scenario input to a v1 ScenarioConfig the LM Studio stack understands. */
-export function resolveScenarioFromText(text: string): ScenarioConfig {
+export function resolveScenarioFromText(text: string, overrides: ScenarioOverrides = {}): ScenarioConfig {
   const trimmed = text.trim();
   const template = pickScenarioTemplate(trimmed);
   const setting = inferSetting(trimmed);
-  const emotion = inferEmotion(trimmed);
+  // Explicit UI pick wins; otherwise fall back to keyword inference.
+  const emotion = overrides.emotion ?? inferEmotion(trimmed);
 
   return {
     ...template,
@@ -126,7 +136,7 @@ export function resolveScenarioFromText(text: string): ScenarioConfig {
     title: trimmed.slice(0, 80) || template.title,
     rawPrompt: trimmed || template.rawPrompt,
     setting,
-    difficulty: inferDifficulty(trimmed),
+    difficulty: overrides.difficulty ?? inferDifficulty(trimmed),
     client: {
       ...template.client,
       name: extractName(trimmed, template.client.name),
@@ -137,9 +147,19 @@ export function resolveScenarioFromText(text: string): ScenarioConfig {
   };
 }
 
+// The professional role the STUDENT plays for each setting (the client is the
+// counterpart they practise with — e.g. in IT helpdesk the client is the angry
+// customer, and the student is the support officer).
+const SETTING_TO_USER_ROLE: Record<ScenarioConfig["setting"], string> = {
+  student_support_office: "Student support advisor",
+  clinic: "Clinician",
+  it_helpdesk: "IT support officer",
+};
+
 export function scenarioToPersona(scenario: ScenarioConfig): Persona {
   return {
     role: `${scenario.client.role} — ${scenario.client.name}`,
+    userRole: SETTING_TO_USER_ROLE[scenario.setting],
     scene: scenario.rawPrompt.slice(0, 160),
     emotion: `${scenario.client.initialEmotion}, in a ${scenario.setting.replaceAll("_", " ")} setting`,
     difficulty: DIFFICULTY_FROM_V1[scenario.difficulty],

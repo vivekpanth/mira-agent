@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import type { Persona } from "@/types";
+import type { Persona, Difficulty } from "@/types";
+import type { ClientEmotion } from "@/lib/v1/types";
 import { useSession } from "@/lib/useSession";
 import { useAppearance } from "@/lib/useAppearance";
 import { PersonaCard } from "@/components/ui/PersonaCard";
@@ -17,13 +18,42 @@ const AvatarStage = dynamic(
 
 // One per archetype so the keyword router visibly produces a different client,
 // avatar, and 3D environment for each (the "scenario drives the environment" rubric).
-const EXAMPLES = [
-  { icon: "🫀", label: "Cardiac anxiety", text: "An anxious patient with chest pain who keeps insisting it's nothing." },
-  { icon: "💊", label: "Med resistance",  text: "An upset parent demanding antibiotics for their child's viral cold." },
-  { icon: "🕊️", label: "End-of-life",     text: "A grieving relative who wants to discuss end-of-life care options for her husband." },
-  { icon: "💻", label: "IT escalation",   text: "An angry operations director escalating after a payroll system outage missed staff payments." },
-  { icon: "🤝", label: "Difficult 1:1",   text: "A one-to-one with a colleague about repeatedly missed deadlines on the team." },
+const EXAMPLES: Array<{ label: string; text: string }> = [
+  {
+    label: "Cardiac anxiety",
+    text: "A 58-year-old patient with chest pain who keeps insisting it is nothing and wants to leave before any tests are done.",
+  },
+  {
+    label: "Medication resistance",
+    text: "A parent demanding antibiotics for their child's viral cold and getting frustrated when you explain they would not help.",
+  },
+  {
+    label: "End-of-life care",
+    text: "A relative who has just learned their husband is dying and wants to talk through palliative care options.",
+  },
+  {
+    label: "IT escalation",
+    text: "An operations director escalating after a payroll system outage caused staff to miss their wages this month.",
+  },
+  {
+    label: "Difficult one-to-one",
+    text: "A one-to-one with a colleague about deadlines they have repeatedly missed, which is now affecting the whole team.",
+  },
+  {
+    label: "Breaking bad news",
+    text: "A patient waiting for biopsy results that came back positive, who is hopeful and asking if everything is fine.",
+  },
 ];
+
+// Optional explicit picks. undefined = let the keyword router infer from the text.
+const DEMEANOURS: Array<{ value: ClientEmotion; label: string; hint: string }> = [
+  { value: "anxious", label: "Anxious", hint: "Worried, seeking reassurance" },
+  { value: "defensive", label: "Defensive", hint: "Guarded, easily provoked" },
+  { value: "neutral", label: "Reserved", hint: "Flat, hard to read" },
+  { value: "relieved", label: "Open", hint: "Cooperative, receptive" },
+];
+
+const DIFFICULTIES: Difficulty[] = ["Easy", "Moderate", "Hard"];
 
 export function ScenarioScreen() {
   const { scenarioText, setScenarioText, persona, setPersona, goToStep } =
@@ -31,6 +61,9 @@ export function ScenarioScreen() {
   const { lookKey, themeKey } = useAppearance();
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
+  // undefined = let MIRA infer the demeanour / difficulty from the text.
+  const [emotion, setEmotion] = useState<ClientEmotion | undefined>(undefined);
+  const [difficulty, setDifficulty] = useState<Difficulty | undefined>(undefined);
 
   async function generate() {
     if (!scenarioText.trim() || loading) return;
@@ -40,7 +73,7 @@ export function ScenarioScreen() {
       const res  = await fetch("/api/scenario", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: scenarioText }),
+        body: JSON.stringify({ text: scenarioText, emotion, difficulty }),
       });
       if (!res.ok) throw new Error("Failed to parse scenario");
       const data: Persona = await res.json();
@@ -113,15 +146,57 @@ export function ScenarioScreen() {
                   key={ex.label}
                   type="button"
                   onClick={() => setScenarioText(ex.text)}
-                  className="flex items-center gap-3 rounded-xl border border-navy2/10 bg-white px-3.5 py-2.5 text-left text-xs text-navy transition-all hover:border-teal/50 hover:shadow-sm"
+                  className="rounded-xl border border-navy2/10 bg-white px-3.5 py-2.5 text-left text-xs text-navy transition-all hover:border-teal/50 hover:shadow-sm"
                 >
-                  <span className="text-base">{ex.icon}</span>
-                  <span>
-                    <span className="font-semibold">{ex.label}</span>
-                    <span className="ml-1 text-dim">— {ex.text.slice(0, 38)}…</span>
-                  </span>
+                  <span className="font-semibold">{ex.label}</span>
+                  <span className="ml-1.5 text-dim">— {ex.text.slice(0, 44)}…</span>
                 </button>
               ))}
+            </div>
+
+            {/* Client demeanour — overrides what MIRA infers from the text */}
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium text-dim">
+                Client demeanour{" "}
+                <span className="text-navy2/40">(optional — defaults to auto)</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <DemeanourChip
+                  active={emotion === undefined}
+                  label="Auto"
+                  hint="Infer from your text"
+                  onClick={() => setEmotion(undefined)}
+                />
+                {DEMEANOURS.map((d) => (
+                  <DemeanourChip
+                    key={d.value}
+                    active={emotion === d.value}
+                    label={d.label}
+                    hint={d.hint}
+                    onClick={() => setEmotion(d.value)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Difficulty */}
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium text-dim">Difficulty</p>
+              <div className="flex gap-2">
+                <DemeanourChip
+                  active={difficulty === undefined}
+                  label="Auto"
+                  onClick={() => setDifficulty(undefined)}
+                />
+                {DIFFICULTIES.map((d) => (
+                  <DemeanourChip
+                    key={d}
+                    active={difficulty === d}
+                    label={d}
+                    onClick={() => setDifficulty(d)}
+                  />
+                ))}
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -183,6 +258,34 @@ export function ScenarioScreen() {
         )}
       </div>
     </div>
+  );
+}
+
+function DemeanourChip({
+  active,
+  label,
+  hint,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  hint?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={hint}
+      aria-pressed={active}
+      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+        active
+          ? "border-teal bg-teal text-white shadow-sm"
+          : "border-navy2/15 bg-white text-navy hover:border-teal/50"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 

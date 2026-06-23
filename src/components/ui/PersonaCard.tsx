@@ -12,8 +12,13 @@ export function PersonaCard({ persona }: { persona: Persona }) {
     <article className="reveal w-full rounded-2xl bg-white p-6 shadow-[var(--shadow-card)] ring-1 ring-navy2/10">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-navy">
-            {persona.role}
+          {persona.userRole && (
+            <p className="text-xs font-semibold uppercase tracking-wide text-teal">
+              You: {persona.userRole}
+            </p>
+          )}
+          <h2 className="mt-0.5 text-xl font-semibold tracking-tight text-navy">
+            {persona.userRole ? `Your client: ${persona.role}` : persona.role}
           </h2>
           <p className="mt-1 text-sm text-dim">{persona.scene}</p>
         </div>
