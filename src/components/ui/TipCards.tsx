@@ -1,23 +1,15 @@
-/** Exactly two prioritised, actionable coaching tips. */
+/** Two prioritised coaching tips — minimal list layout. */
 export function TipCards({ tips }: { tips: [string, string] }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <ol className="space-y-3">
       {tips.map((tip, i) => (
-        <div
-          key={i}
-          className="rounded-2xl bg-teal/8 p-4 ring-1 ring-teal/25"
-        >
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal text-xs font-bold text-white">
-              {i + 1}
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-wide text-teal-dark">
-              Next session, try this
-            </span>
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-navy">{tip}</p>
-        </div>
+        <li key={i} className="flex gap-3 text-sm leading-relaxed text-navy">
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal/12 text-[11px] font-bold text-teal-dark">
+            {i + 1}
+          </span>
+          <span>{tip}</span>
+        </li>
       ))}
-    </div>
+    </ol>
   );
 }

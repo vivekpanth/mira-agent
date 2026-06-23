@@ -39,14 +39,15 @@ src/
   app/
     page.tsx                 # shell + step router (Scenario→Rehearse→Report)
     api/
-      scenario/route.ts      # POST: text -> Persona (Bedrock or mock)
+      scenario/route.ts      # POST: text -> Persona (local keyword router)
       converse/route.ts      # POST: studentText -> {replyText, audioUrl, mood}
       analyze/route.ts       # POST: transcript -> Report
   components/
     screens/ ScenarioScreen.tsx RehearsalScreen.tsx ReportScreen.tsx
     ui/      PersonaCard.tsx LiveTranscript.tsx ScoreDial.tsx ...
     three/   AvatarStage.tsx Avatar.tsx Room.tsx   # all R3F
-  services/  bedrock.ts polly.ts transcribe.ts comprehend.ts s3.ts  # each: Mock + Real
+  lib/v1/    ai/ (local LLM)  voice/ (neural TTS)  # dialogue + client voice
+  services/  rekognition.ts                        # eye-contact: Mock + Real (USE_MOCKS)
   fixtures/  persona.ts conversation.ts report.ts  # canned demo data
   lib/       useSession.ts metrics.ts (deterministic scoring)
   types.ts                   # FROZEN contracts
@@ -54,34 +55,32 @@ src/
 
 ---
 
-## 3. AWS service-layer pattern (copy this shape for every service)
+## 3. Service-layer pattern (copy this shape for any external call)
 ```ts
-// services/bedrock.ts
-import type { Persona } from '@/types';
+// services/rekognition.ts
 const USE_MOCKS = process.env.USE_MOCKS !== 'false';
-export async function parseScenario(text: string): Promise<Persona> {
-  if (USE_MOCKS) return mockParseScenario(text);     // deterministic, instant
-  return realParseScenario(text);                    // calls Bedrock
+export async function detectEyeContact(jpegBase64: string): Promise<number> {
+  if (USE_MOCKS) return mockEyeContact();            // deterministic, instant
+  return realEyeContact(jpegBase64);                 // calls Rekognition
 }
 ```
 - Client code NEVER imports a service or holds AWS keys. Only `app/api/*` routes do.
 - Every `/api` route accepts `?demo=1` → returns a fixture from `src/fixtures/`, regardless of `USE_MOCKS`.
-- Wire real services in this order of priority: **Bedrock → Polly → Transcribe**, then
-  Comprehend/Rekognition only if Tier-1/2 is demo-stable. If a real service is risky, keep it mocked
-  and SAY SO in the UI/pitch ("computed locally to stay in free tier") — never fake a claim.
+- **The AI stack is on-device** (local LLM + neural TTS) — see §3.5. The only cloud call is
+  Rekognition (eye-contact), and it's mocked by default. If a real service is risky, keep it mocked
+  and SAY SO in the UI/pitch ("computed locally / on-device") — never fake a claim.
 
 ---
 
-## 3.5 Going live on AWS (when USE_MOCKS=false) — full runbook in `docs/AWS_SETUP.md`
-- **Stack:** Bedrock (`@aws-sdk/client-bedrock-runtime`) for persona/dialogue/report, Polly
-  (`@aws-sdk/client-polly`) for the client voice, Transcribe (optional) for STT, S3 (optional)
-  for recordings. Region `us-east-1`.
-- **Process:** request Bedrock model access → create IAM user + access key → `cp .env.example
-  .env.local`, set keys + `USE_MOCKS=false` + `BEDROCK_MODEL_ID` → `npm i` the SDK(s) →
-  implement the `real*` stubs in `src/services/*` → verify per tier.
-- **Order (don't skip):** Bedrock → Polly → Transcribe → S3. Wire one, verify it in the demo,
-  then the next. Keep a `USE_MOCKS=true` branch as demo insurance.
-- `lib/metrics.ts` owns the numbers even in real mode; let Claude write only the prose (evidence/tips).
+## 3.5 The real AI stack (no Bedrock/Polly) — full runbook in `docs/AWS_SETUP.md`
+- **Dialogue + report prose:** local LLM via `src/lib/v1/ai/` — LM Studio (`qwen/qwen3-8b`) by
+  default, or Ollama (`LLM_PROVIDER=ollama`). Configured with `LMSTUDIO_*` env. No cloud.
+- **Client voice:** local neural TTS via `src/lib/v1/voice/serverTts.ts` — Kokoro (`npm run
+  tts:up`), falling back to Piper → macOS `say` → browser speech. No cloud.
+- **Persona:** deterministic keyword router in `src/lib/v1-adapter.ts` (no model call).
+- **Eye-contact (optional cloud):** Amazon Rekognition `DetectFaces`, gated by `USE_MOCKS`.
+  Mocked by default; set `USE_MOCKS=false` + `AWS_*` creds to go live. Region `us-east-1`.
+- `lib/metrics.ts` owns the numbers; the LLM writes only the prose (evidence/tips).
 
 ## 3.6 Known gap (top priority)
 `mockParseScenario` currently ignores its input and always returns the same persona. Build a
@@ -132,7 +131,7 @@ so "scenario drives the environment" is TRUE on mocks. This is the highest-value
 
 ## 7. Definition of done / checkpoints
 - **12:30** — Scenario→Rehearse→Report clicks end-to-end on mocks, on one machine.
-- **14:00** — Real Bedrock+Polly+Transcribe wired; scope FROZEN (no new features after this).
+- **14:00** — Local LLM dialogue + neural TTS voice wired (Rekognition optional); scope FROZEN (no new features after this).
 - **14:15** — A 90s happy-path screen recording captured as demo insurance.
 - **15:00** — Submitted. Then rehearse only.
 

@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import type { ConverseResult, Persona, Turn } from "@/types";
-import { converse } from "@/services/bedrock";
-import { synthesize } from "@/services/polly";
+import { generateConversationResponse } from "@/lib/v1/ai/conversation";
+import { synthesizeClientSpeech } from "@/lib/v1/voice/serverTts";
+import {
+  emotionToMood,
+  personaToScenario,
+  rebuildTrustState,
+  toAudioDataUrl,
+  turnsToTranscript,
+} from "@/lib/v1-adapter";
 import { mockPersona } from "@/fixtures/persona";
 import { mockTurns } from "@/fixtures/conversation";
 
-// POST { turns, studentText, persona? } -> ConverseResult.  ?demo=1 returns a fixture line.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// POST { turns, studentText, persona? } -> ConverseResult. Backed by v1 LM Studio + Kokoro TTS.
 export async function POST(req: Request) {
   const { searchParams } = new URL(req.url);
   if (searchParams.get("demo") === "1") {
@@ -33,12 +43,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing 'studentText'" }, { status: 400 });
   }
 
-  // Persona keeps the real client in character + picks its Polly voice.
-  const result = await converse(turns, studentText, persona);
-  const voiceId = persona?.voiceId ?? mockPersona.voiceId;
-  // If a real voice is available, attach it; otherwise null -> speechSynthesis.
-  const audioUrl =
-    result.audioUrl ?? (await synthesize(result.replyText, voiceId));
+  const activePersona = persona ?? mockPersona;
+  const scenario = personaToScenario(activePersona, activePersona.scene);
+  const history = turnsToTranscript(turns);
+  const { trustScore, trustEvents } = rebuildTrustState(turns);
 
-  return NextResponse.json<ConverseResult>({ ...result, audioUrl });
+  const result = await generateConversationResponse({
+    scenario,
+    studentMessage: studentText,
+    history,
+    trustScore,
+    turnCount: trustEvents.length,
+  });
+
+  const mood = emotionToMood(result.emotion);
+  let audioUrl: string | null = null;
+  const tts = await synthesizeClientSpeech(result.reply, scenario.id, result.emotion);
+  if (tts) audioUrl = toAudioDataUrl(tts.audio, tts.contentType);
+
+  return NextResponse.json<ConverseResult>({
+    replyText: result.reply,
+    audioUrl,
+    mood,
+  });
 }

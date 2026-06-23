@@ -1,32 +1,25 @@
 import type { Evidence } from "@/types";
 
-const TAG_STYLES: Record<Evidence["tag"], { dot: string; label: string; text: string }> = {
-  good: { dot: "bg-teal", label: "Strength", text: "text-teal-dark" },
-  improve: { dot: "bg-orange", label: "Work on", text: "text-orange" },
-  flag: { dot: "bg-mood-angry", label: "Flag", text: "text-mood-angry" },
+const TAG: Record<Evidence["tag"], { label: string; className: string }> = {
+  good: { label: "Strength", className: "text-teal-dark" },
+  improve: { label: "Improve", className: "text-orange" },
+  flag: { label: "Note", className: "text-navy/60" },
 };
 
-/** Evidence list — every item quotes a real line from the session (W3). */
 export function EvidenceList({ evidence }: { evidence: Evidence[] }) {
   return (
-    <ul className="space-y-3">
+    <ul className="divide-y divide-navy2/8">
       {evidence.map((e, i) => {
-        const style = TAG_STYLES[e.tag];
+        const tag = TAG[e.tag];
         return (
-          <li
-            key={i}
-            className="rounded-xl bg-white p-4 ring-1 ring-navy2/10"
-          >
-            <div className="flex items-center gap-2">
-              <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-              <span className={`text-xs font-semibold uppercase tracking-wide ${style.text}`}>
-                {style.label}
-              </span>
-            </div>
-            <blockquote className="mt-2 border-l-2 border-navy2/20 pl-3 text-sm italic leading-relaxed text-navy">
-              “{e.quote}”
+          <li key={i} className="py-4 first:pt-0 last:pb-0">
+            <p className={`text-[11px] font-semibold uppercase tracking-wide ${tag.className}`}>
+              {tag.label}
+            </p>
+            <blockquote className="mt-1.5 text-sm leading-relaxed text-navy">
+              &ldquo;{e.quote}&rdquo;
             </blockquote>
-            <p className="mt-2 text-sm leading-relaxed text-navy2">{e.comment}</p>
+            <p className="mt-1 text-sm text-dim">{e.comment}</p>
           </li>
         );
       })}

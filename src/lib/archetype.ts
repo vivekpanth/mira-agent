@@ -1,10 +1,9 @@
 // lib/archetype.ts — turns a scenario (or a generated Persona) into a visual
 // "archetype" that drives BOTH the avatar's appearance and the 3D room theme.
 //
-// This is what makes "the scenario drives the environment" true even on mocks:
-//  - services/bedrock.ts uses matchArchetype(rawText) to pick a mock persona
+// This is what makes "the scenario drives the environment" true:
+//  - matchArchetype(rawText) picks the closest archetype from the scenario text
 //  - components/three/AvatarStage.tsx uses lookFor()/themeFor() on the persona
-//    (works for real Bedrock personas too — it matches on the generated text)
 
 import type { Mood, Persona } from "@/types";
 

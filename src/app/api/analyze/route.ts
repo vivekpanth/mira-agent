@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import type { Report, Turn } from "@/types";
-import { analyze } from "@/services/bedrock";
-import { computeMetrics } from "@/lib/metrics";
+import { generateFeedback } from "@/lib/v1/ai/feedback";
+import { feedbackToReport, rebuildTrustState, scenarioFromTurns, turnsToTranscript } from "@/lib/v1-adapter";
 import { mockReport } from "@/fixtures/report";
 
-const USE_MOCKS = process.env.USE_MOCKS !== "false";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-// POST { turns } -> Report.  ?demo=1 returns the fixture directly (CLAUDE.md §3).
+// POST { turns, persona?, eyeContactPct? } -> Report. Uses v1 LM Studio feedback engine.
 export async function POST(req: Request) {
   const { searchParams } = new URL(req.url);
   if (searchParams.get("demo") === "1") {
@@ -27,18 +28,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing 'turns'" }, { status: 400 });
   }
 
-  const report = await analyze(turns);
+  const scenario = scenarioFromTurns(turns);
+  const transcript = turnsToTranscript(turns);
+  const { trustEvents } = rebuildTrustState(turns);
 
-  if (USE_MOCKS) {
-    // Mock mode: the fixture's metrics and evidence are pre-aligned (both
-    // reference the same scripted session). Returning the fixture unchanged
-    // keeps numbers and quoted evidence consistent — the judge sees 3 fillers,
-    // and the evidence cites those exact filler words.
-    return NextResponse.json<Report>(report);
-  }
-
-  // Real mode: overlay code-computed metrics so report numbers are reproducible
-  // from the actual transcript (CLAUDE.md §6).
-  const metrics = computeMetrics(turns, { eyeContactPct });
-  return NextResponse.json<Report>({ ...report, metrics });
+  const feedback = await generateFeedback(scenario, transcript, trustEvents);
+  const report = feedbackToReport(feedback, turns, eyeContactPct);
+  return NextResponse.json<Report>(report);
 }

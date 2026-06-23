@@ -14,7 +14,7 @@ export interface Persona {
   hiddenConcern: string;   // e.g. "Fears she is having a heart attack"
   objectives: string[];    // 3 learning objectives MIRA will assess
   avatarMood: Mood;        // drives 3D posture + lighting colour
-  voiceId?: string;        // Amazon Polly voice id (real mode)
+  voiceId?: string;        // preferred TTS voice id (engine-specific)
 }
 
 /** One line of dialogue in the running transcript. */
@@ -28,7 +28,7 @@ export interface Turn {
 /** Response from /api/converse for a single client turn. */
 export interface ConverseResult {
   replyText: string;
-  audioUrl: string | null; // Polly mp3 url, or null -> client uses speechSynthesis fallback
+  audioUrl: string | null; // synthesized voice (data url), or null -> speechSynthesis fallback
   mood: Mood;              // may shift during the conversation
 }
 

@@ -47,10 +47,10 @@ neural voice and computer-vision feedback) and keep the sensitive dialogue priva
 - **Next.js 16** (App Router, Turbopack) + **React 19** + **TypeScript (strict)**
 - **Tailwind CSS v4** + **shadcn/ui**
 - **3D:** React Three Fiber v9 + drei v10 (procedural primitives — **zero external 3D assets**)
-- **Browser APIs:** Web Speech (dictation), Web Audio (mixing for the recording), MediaRecorder + Canvas 2D (composite capture)
-- **Local AI:** Ollama — `llama3.1:8b` (fallback `gemma4:e4b`)
-- **AWS (live):** Amazon **Polly** (voice) · Amazon **Rekognition** (eye contact)
-- **Testing:** Vitest (deterministic metrics tested first)
+- **Browser APIs:** Web Speech (dictation), Web Audio (waveform), MediaRecorder (capture), Canvas 2D (confetti)
+- **Testing:** Vitest (deterministic metrics are tested first)
+- **On-device AI:** local LLM (LM Studio / Ollama) for dialogue · local neural TTS (Kokoro) for voice
+- **Cloud (optional):** Amazon Rekognition for eye-contact only — see [`docs/AWS_SETUP.md`](docs/AWS_SETUP.md)
 
 Every external call sits behind a **Mock / Real / Local switch**, so the app also runs fully
 offline on `localhost`.
@@ -113,14 +113,50 @@ src/
     screens/                 # ScenarioScreen, RehearsalScreen, ReportScreen
     ui/                      # PersonaCard, LiveTranscript, MetricChips, SpeechCaption, …
     three/                   # AvatarStage, Avatar, Room  (all R3F, 'use client')
-  services/                  # polly, rekognition, LLM router (→ local Ollama) — Mock/Real/Local
-  lib/                       # useSession, metrics (deterministic), useCamera, useEyeContact, audioBus
-  types.ts                   # FROZEN contracts
+  services/                  # rekognition (eye-contact) — Mock + Real impl (USE_MOCKS)
+  lib/v1/                    # local LLM (ai/) + neural TTS (voice/) providers
+  fixtures/                  # canned persona / conversation / report for the mock path
+  lib/                       # useSession (context), metrics (deterministic scoring), speak…
+  types.ts                   # FROZEN contracts — shapes don't change without agreement
 ```
 
-**How the scenario drives the environment** → see [`docs/TECHNICAL.md`](docs/TECHNICAL.md).
-**Why it helps students learn** → see [`docs/REFLECTION.md`](docs/REFLECTION.md).
-**3-minute demo script** → see [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
+**Architecture rules (full detail in [`CLAUDE.md`](CLAUDE.md)):**
+- Client code never holds AWS keys or imports a service — only `app/api/*` routes do.
+- Every `/api` route accepts `?demo=1` to return a fixture regardless of `USE_MOCKS`.
+- The 3D avatar is built from primitives — no `.glb`/`.gltf` (zero load-time failure risk).
+
+---
+
+## 🔌 Mock vs Real
+
+`USE_MOCKS` (in `.env.local`, defaults to `true`) is the master switch:
+
+- **`true`** — deterministic fixtures, instant, no account. **Use this for the live demo.**
+- **`false`** — enables the real Rekognition eye-contact call. Dialogue + voice are always the
+  local AI stack (no cloud). See [`docs/AWS_SETUP.md`](docs/AWS_SETUP.md).
+
+---
+
+## 🧪 Status & roadmap
+
+**Working now (on mocks):** full Scenario→Rehearsal→Report flow, 3D office + expressive avatar,
+camera-in-scene, voiced replies, session recording + download, live coaching, evidence-grounded
+report, PDF export.
+
+**Known limitation / next up:**
+- The mock persona generator currently returns one fixed patient regardless of input. A
+  **keyword router** (medical / IT-client / difficult-conversation archetypes) is the top
+  priority so *"scenario drives the environment"* is true without needing AWS. *(See issues.)*
+
+**Optional upgrades:** real Rekognition eye-contact (`USE_MOCKS=false`); swap the local LLM
+(LM Studio ↔ Ollama) or TTS engine (Kokoro / Piper / macOS) via env.
+
+---
+
+## 👥 Team & contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for how to run the project, the branch workflow, the
+Mock/Real service pattern, coding standards, and a list of pick-up-able tasks.
 
 ---
 

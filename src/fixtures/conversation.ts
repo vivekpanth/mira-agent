@@ -69,7 +69,7 @@ export const mockTurns: Turn[] = [
 
 /**
  * In-character client lines per archetype, used by mockConverse so that even
- * without live Bedrock (e.g. throttled), each scenario has its OWN dialogue that
+ * without the live LLM (e.g. offline), each scenario has its OWN dialogue that
  * starts in its emotion and softens as the student builds rapport. Lines
  * progress in order; the last is reused once exhausted.
  */

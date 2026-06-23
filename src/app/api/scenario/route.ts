@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import type { Persona } from "@/types";
-import { parseScenario } from "@/services/bedrock";
 import { mockPersona } from "@/fixtures/persona";
+import { resolveScenarioFromText, scenarioToPersona } from "@/lib/v1-adapter";
 
-// POST { text } -> Persona.  ?demo=1 returns the fixture directly (CLAUDE.md §3).
+// POST { text } -> Persona. Uses the v1 scenario engine (LM Studio + presets).
 export async function POST(req: Request) {
   const { searchParams } = new URL(req.url);
   if (searchParams.get("demo") === "1") {
@@ -22,6 +22,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing 'text'" }, { status: 400 });
   }
 
-  const persona = await parseScenario(text);
+  const scenario = resolveScenarioFromText(text);
+  const persona = scenarioToPersona(scenario);
   return NextResponse.json<Persona>(persona);
 }

@@ -14,8 +14,8 @@ function AppBody() {
       <header className="flex items-center justify-between border-b border-navy2/10 bg-white/70 px-6 py-4 backdrop-blur">
         <div className="flex items-center gap-2">
           <span className="text-lg font-bold tracking-tight text-navy">MIRA</span>
-          <span className="rounded-full bg-orange/15 px-2 py-0.5 text-xs font-semibold text-orange">
-            AWS · Bedrock + Polly
+          <span className="rounded-full bg-teal/12 px-2 py-0.5 text-xs font-semibold text-teal-dark">
+            Private on-device AI
           </span>
         </div>
         <StepRail current={step} />

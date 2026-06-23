@@ -12,7 +12,6 @@ import { speakText } from "@/lib/speak";
 import { playCapturable } from "@/lib/audioBus";
 import { LiveTranscript } from "@/components/ui/LiveTranscript";
 import { LiveCoach }     from "@/components/ui/LiveCoach";
-import { SpeechCaption } from "@/components/ui/SpeechCaption";
 import { Button } from "@/components/ui/button";
 import { MicControl } from "@/components/ui/MicControl";
 
@@ -44,7 +43,26 @@ export function RehearsalScreen() {
   const [ending, setEnding] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [moodToast, setMoodToast] = useState<string | null>(null);
+  const [modelLabel, setModelLabel] = useState<string | null>(null);
   const startedAt = useRef(Date.now());
+  const startMicRef = useRef<() => void>(() => {});
+  const flowRef = useRef({ thinking: false, speaking: false, ending: false, supported: false });
+
+  useEffect(() => {
+    fetch("/api/status")
+      .then((r) => r.json())
+      .then((d: { llm?: { model?: string } }) => setModelLabel(d.llm?.model ?? null))
+      .catch(() => {});
+  }, []);
+
+  const scheduleAutoListen = useCallback(() => {
+    window.setTimeout(() => {
+      const s = flowRef.current;
+      if (s.supported && !s.thinking && !s.speaking && !s.ending) {
+        startMicRef.current();
+      }
+    }, 1000);
+  }, []);
 
   // Session timer.
   useEffect(() => {
@@ -71,7 +89,8 @@ export function RehearsalScreen() {
 
   const handleStudentUtterance = useCallback(
     async (text: string) => {
-      if (!text.trim() || thinking || speaking) return;
+      // Ignore stray transcripts that arrive after the session has ended.
+      if (!text.trim() || thinking || speaking || flowRef.current.ending) return;
       const tMs = Date.now() - startedAt.current;
       const studentTurn: Turn = { speaker: "student", text, tMs };
       addTurn(studentTurn);
@@ -109,25 +128,40 @@ export function RehearsalScreen() {
         }
         setMood(data.mood);
 
-        // W2: speak the reply (Polly mp3 if present, else browser TTS).
+        // Speak the reply (synthesized neural voice if present, else browser TTS).
         setSpeaking(true);
         if (data.audioUrl) await playCapturable(data.audioUrl);
         else await speakText(data.replyText);
         setSpeaking(false);
+        scheduleAutoListen();
       } catch {
         setThinking(false);
         setSpeaking(false);
       }
     },
-    [addTurn, turns, thinking, speaking, mood, persona],
+    [addTurn, turns, thinking, speaking, mood, persona, scheduleAutoListen],
   );
 
   const { supported, listening, interim, start, stop } =
     useDictation(handleStudentUtterance);
 
+  startMicRef.current = start;
+  flowRef.current = { thinking, speaking, ending, supported };
+
+  // The first turn is started by the user (tap the mic). After that, the mic
+  // reopens automatically once the client finishes replying (scheduleAutoListen),
+  // and stops for good once the session is ended.
+
   async function endSession() {
     if (ending) return;
     setEnding(true);
+    // Stop the mic now and flag `ending` immediately so any pending auto-listen
+    // (scheduled before render) does not reopen it. The session must go silent.
+    flowRef.current = { ...flowRef.current, ending: true };
+    stop();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
     const recordingUrl = await stopRecording();
     if (recordingUrl) setRecordingUrl(recordingUrl);
     try {
@@ -176,6 +210,15 @@ export function RehearsalScreen() {
       ? { name: "You", text: studentCaption }
       : null;
 
+  // Single active subtitle line for the on-stage caption bar (client while it
+  // speaks, otherwise the student's interim / last line). Full text, no clamp.
+  const activeCaption: { who: "client" | "student"; name: string; text: string } | null =
+    speaking && clientCaption
+      ? { who: "client", name: clientName, text: clientCaption }
+      : studentCaption
+        ? { who: "student", name: "You", text: studentCaption }
+        : null;
+
   return (
     <>
     {hiddenVideo}
@@ -192,59 +235,73 @@ export function RehearsalScreen() {
             themeKey={themeKey}
           />
 
-          {/* Speech-bubble captions — client speaks from top, student from bottom */}
-          {speaking && clientCaption && (
-            <SpeechCaption
-              key={`c-${clientCaption}`}
-              text={clientCaption}
-              speaker="client"
-              name={clientName}
-            />
-          )}
-          {!speaking && studentCaption && (
-            <SpeechCaption
-              key={`s-${studentCaption}`}
-              text={studentCaption}
-              speaker="student"
-              name="You"
-            />
-          )}
-
-          {/* Persona name badge */}
-          <div className="absolute left-4 top-4 rounded-full bg-navy/80 px-3 py-1 text-xs font-medium text-white backdrop-blur">
-            {persona.role}
+          {/* Top-left: persona identity (truncated so long roles never sprawl) */}
+          <div className="pointer-events-none absolute left-4 top-4 flex max-w-[60%] flex-col gap-1.5">
+            <span
+              className="truncate rounded-full bg-navy/80 px-3 py-1 text-xs font-medium text-white backdrop-blur"
+              title={persona.role}
+            >
+              {persona.role}
+            </span>
+            {modelLabel && (
+              <span
+                className="w-fit max-w-full truncate rounded-full bg-black/35 px-2.5 py-0.5 text-[10px] font-medium text-white/70 backdrop-blur"
+                title={`AI model: ${modelLabel}`}
+              >
+                AI · {modelLabel}
+              </span>
+            )}
           </div>
 
-          {/* Mood shift toast */}
-          {moodToast && (
-            <div className="absolute left-1/2 top-4 -translate-x-1/2 reveal rounded-full bg-navy/90 px-4 py-1.5 text-xs font-semibold text-teal backdrop-blur-md ring-1 ring-teal/30 whitespace-nowrap">
-              ◈ {moodToast}
-            </div>
-          )}
-
-          {/* Session timer */}
-          <div className="absolute right-4 top-4 rounded-full bg-navy/80 px-3 py-1 font-mono text-xs text-white backdrop-blur">
+          {/* Top-right: session timer */}
+          <div className="pointer-events-none absolute right-4 top-4 rounded-full bg-navy/80 px-3 py-1 font-mono text-xs text-white backdrop-blur">
             ● {mm}:{ss}
           </div>
 
-          {/* "MIRA is thinking" overlay */}
-          {thinking && (
-            <div className="pointer-events-none absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 bg-gradient-to-t from-navy/90 to-transparent py-5">
-              <span className="h-2 w-2 animate-bounce rounded-full bg-teal [animation-delay:-0.3s]" />
-              <span className="h-2 w-2 animate-bounce rounded-full bg-teal [animation-delay:-0.15s]" />
-              <span className="h-2 w-2 animate-bounce rounded-full bg-teal" />
-              <span className="ml-2 text-xs font-medium text-white/80 tracking-wide">MIRA is thinking…</span>
+          {/* Top-center: live status chip (thinking / speaking / mood shift) */}
+          {(thinking || moodToast || (listening && !speaking)) && (
+            <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2">
+              <span className="flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1 text-[11px] font-medium text-white/90 backdrop-blur-md ring-1 ring-white/10">
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    thinking
+                      ? "animate-pulse bg-orange"
+                      : listening && !speaking
+                        ? "animate-pulse bg-teal"
+                        : "bg-teal"
+                  }`}
+                />
+                {thinking
+                  ? "Thinking…"
+                  : moodToast
+                    ? moodToast
+                    : "Listening…"}
+              </span>
             </div>
           )}
 
-          {/* Speaking indicator */}
-          {speaking && !thinking && (
-            <div className="pointer-events-none absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 bg-gradient-to-t from-navy/90 to-transparent py-5">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-teal" />
-              </span>
-              <span className="ml-1 text-xs font-medium text-teal tracking-wide">Speaking</span>
+          {/* Bottom: dialogue subtitle bar — full text, no truncation */}
+          {activeCaption && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-4 pb-4">
+              <div
+                aria-live="polite"
+                className={`reveal max-w-[34rem] rounded-xl px-4 py-2.5 shadow-lg ring-1 backdrop-blur-md ${
+                  activeCaption.who === "client"
+                    ? "bg-white/95 text-navy ring-teal/30"
+                    : "bg-navy/90 text-white ring-white/15"
+                }`}
+              >
+                <span
+                  className={`mb-0.5 block text-[10px] font-semibold uppercase tracking-widest ${
+                    activeCaption.who === "client" ? "text-teal-dark" : "text-teal/80"
+                  }`}
+                >
+                  {activeCaption.name}
+                </span>
+                <p className="max-h-24 overflow-y-auto text-sm leading-snug">
+                  {activeCaption.text}
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -255,6 +312,7 @@ export function RehearsalScreen() {
           interim={interim}
           disabled={thinking || speaking || ending}
           stream={streamRef.current}
+          autoMode
           onStart={start}
           onStop={stop}
           onSubmitText={handleStudentUtterance}

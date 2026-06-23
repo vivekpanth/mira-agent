@@ -18,7 +18,7 @@ is the report — it turns a role-play sim into a practise → measure → impro
 
 ## The three "wow" moments to engineer (don't leave to chance)
 - W1 (~0:35): typing a scenario visibly fills the persona card AND changes the 3D avatar's mood/posture.
-- W2 (~1:30): the client talks back in a natural Amazon Polly voice (not robotic browser TTS).
+- W2 (~1:30): the client talks back in a natural local neural voice — Kokoro (not robotic browser TTS).
 - W3 (~2:20): "End session" produces a scored report citing a real quote ("you interrupted twice…").
 
 ## Design tokens
@@ -26,13 +26,13 @@ is the report — it turns a role-play sim into a practise → measure → impro
   paper `#f5f8fa`, muted `#6b8195`. Rounded-2xl cards, soft shadows, 8pt spacing grid, 150–250ms eases.
 - One primary action per screen. Captions on by default. Calm, clinical, production-looking.
 
-## AWS mapping (free-tier first; mock anything risky)
-Bedrock = persona parsing + dialogue + report scoring · Polly = client voice · Transcribe = STT
-(or on-device Web Speech) · Comprehend = sentiment · Rekognition = eye-contact (optional) · S3 = storage.
+## AI mapping (on-device first; cloud only where it earns it)
+Local LLM (LM Studio / Ollama) = persona parsing + dialogue + report scoring · Local neural TTS
+(Kokoro) = client voice · Web Speech = STT · Rekognition = eye-contact (optional cloud, mocked by default).
 
 ## Build order (don't deviate)
 1) Scaffold + design system  2) Walking skeleton on MOCKS (all 3 screens click)
-3) Swap in Bedrock → Polly → Transcribe  4) Polish + seed the progress trend  5) Harden demo (backup video).
+3) Wire local LLM → neural TTS → optional Rekognition  4) Polish + seed the progress trend  5) Harden demo (backup video).
 
 ## Definition of done
 12:30 skeleton on mocks · 14:00 real services + scope frozen · 14:15 backup recording · 15:00 submitted.

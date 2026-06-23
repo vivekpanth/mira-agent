@@ -76,6 +76,7 @@ export function MicControl({
   onStart,
   onStop,
   onSubmitText,
+  autoMode = false,
 }: {
   supported: boolean;
   listening: boolean;
@@ -85,6 +86,7 @@ export function MicControl({
   onStart: () => void;
   onStop: () => void;
   onSubmitText: (text: string) => void;
+  autoMode?: boolean;
 }) {
   const [draft, setDraft] = useState("");
 
@@ -114,7 +116,7 @@ export function MicControl({
                   : "relative bg-teal text-white hover:bg-teal-dark"
               }
             >
-              {listening ? "⏹ Tap to send" : "🎙 Push to talk"}
+              {listening ? "⏹ Tap to send" : autoMode ? "🎙 Mic (auto)" : "🎙 Push to talk"}
             </Button>
           </div>
 
@@ -124,8 +126,10 @@ export function MicControl({
           ) : (
             <p className="min-h-5 text-sm text-dim">
               {listening
-                ? interim || "Speak now…"
-                : "Hold a thought and tap the mic."}
+                ? interim || "Speak now — mic stops when you pause."
+                : autoMode
+                  ? "Tap the mic to start — it reopens automatically after each reply."
+                  : "Hold a thought and tap the mic."}
             </p>
           )}
 

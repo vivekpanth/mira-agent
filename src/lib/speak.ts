@@ -1,4 +1,4 @@
-// Browser speechSynthesis fallback when Polly returns no audioUrl (W2).
+// Browser speechSynthesis fallback when the server TTS returns no audioUrl.
 // Resolves when speech finishes so callers can toggle the avatar's `speaking` prop.
 
 export function speakText(text: string): Promise<void> {
@@ -26,7 +26,7 @@ export function speakText(text: string): Promise<void> {
   });
 }
 
-/** Play a Polly mp3 (real mode); resolves when finished. Falls back to TTS. */
+/** Play a synthesized audio clip; resolves when finished. Falls back to TTS. */
 export function playAudio(url: string): Promise<void> {
   return new Promise((resolve) => {
     try {

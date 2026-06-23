@@ -3,7 +3,7 @@
 /**
  * Shared Web Audio graph so the SESSION RECORDING captures both sides of the
  * conversation. canvas.captureStream() carries no audio, and a bare `new Audio()`
- * isn't routable into a MediaStream — so the client's Polly voice never made it
+ * isn't routable into a MediaStream — so the client's synthesized voice never made it
  * into the download. Here we fan every sound through one AudioContext:
  *
  *   mic ─────────────┐
@@ -46,7 +46,7 @@ export function getRecordingStream(): MediaStream | null {
 }
 
 /**
- * Play a Polly mp3 routed through the bus so it lands in the recording AND the
+ * Play a synthesized voice clip routed through the bus so it lands in the recording AND the
  * speakers. Resolves when playback finishes. Falls back to uncaptured playback.
  */
 export function playCapturable(url: string): Promise<void> {
