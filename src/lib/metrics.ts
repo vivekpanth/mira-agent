@@ -23,7 +23,17 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-export function computeMetrics(turns: Turn[]): Metrics {
+/** Optional vision signal sampled during rehearsal (Rekognition). Kept separate
+ * from the transcript so computeMetrics stays pure: same inputs -> same numbers. */
+export interface VisionSignal {
+  eyeContactPct?: number; // 0..100, share of sampled frames the student looked at camera
+}
+
+function clampPct(n: number): number {
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+export function computeMetrics(turns: Turn[], vision?: VisionSignal): Metrics {
   const empty: Metrics = {
     talkRatio: 0,
     fillers: 0,
@@ -84,7 +94,7 @@ export function computeMetrics(turns: Turn[]): Metrics {
     fillers,
     wpm,
     interruptions,
-    eyeContactPct: 0, // Rekognition sampled frames, or 0 when unused
+    eyeContactPct: clampPct(vision?.eyeContactPct ?? 0), // Rekognition; 0 when unused
     avgSentiment: round2(avgSentiment),
   };
 }

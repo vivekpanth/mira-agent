@@ -10,7 +10,7 @@ export function MetricChips({ metrics }: { metrics: Metrics }) {
     {
       label: "Eye contact",
       value: metrics.eyeContactPct ? `${metrics.eyeContactPct}%` : "—",
-      hint: metrics.eyeContactPct ? undefined : "local-only",
+      hint: metrics.eyeContactPct ? "Rekognition" : "local-only",
     },
   ];
 

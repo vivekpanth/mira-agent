@@ -157,6 +157,9 @@ export function AvatarStage({
       shadows
       camera={camera}
       className="rounded-2xl"
+      // preserveDrawingBuffer lets the recorder copy WebGL frames into the
+      // caption compositor (drawImage of a live GL canvas is blank otherwise).
+      gl={{ preserveDrawingBuffer: true }}
       onCreated={({ gl }) => {
         gl.domElement.addEventListener(
           "webglcontextlost",

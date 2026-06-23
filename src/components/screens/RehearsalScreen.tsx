@@ -6,10 +6,13 @@ import type { ConverseResult, Mood, Report, Turn } from "@/types";
 import { useSession } from "@/lib/useSession";
 import { useAppearance } from "@/lib/useAppearance";
 import { useCamera } from "@/lib/useCamera";
+import { useEyeContact } from "@/lib/useEyeContact";
 import { useDictation } from "@/lib/useDictation";
-import { playAudio, speakText } from "@/lib/speak";
+import { speakText } from "@/lib/speak";
+import { playCapturable } from "@/lib/audioBus";
 import { LiveTranscript } from "@/components/ui/LiveTranscript";
 import { LiveCoach }     from "@/components/ui/LiveCoach";
+import { SpeechCaption } from "@/components/ui/SpeechCaption";
 import { Button } from "@/components/ui/button";
 import { MicControl } from "@/components/ui/MicControl";
 
@@ -29,7 +32,11 @@ export function RehearsalScreen() {
   const { persona, turns, addTurn, setReport, setRecordingUrl, goToStep } =
     useSession();
   const { lookKey, themeKey } = useAppearance();
-  const { videoRef, streamRef, stopRecording } = useCamera();
+  const { videoRef, streamRef, ready, startRecording, stopRecording } = useCamera();
+  const { eyeContactPct } = useEyeContact(videoRef, true);
+  const stageRef = useRef<HTMLDivElement>(null);
+  // Latest caption to burn into the recording (read live by the compositor).
+  const captionRef = useRef<{ name: string; text: string } | null>(null);
 
   const [mood, setMood] = useState<Mood>(persona?.avatarMood ?? "neutral");
   const [speaking, setSpeaking] = useState(false);
@@ -47,6 +54,20 @@ export function RehearsalScreen() {
     );
     return () => clearInterval(id);
   }, []);
+
+  // Start recording the 3D scene once the camera is live and the canvas exists.
+  // (AvatarStage is dynamically imported, so the <canvas> mounts a beat later.)
+  useEffect(() => {
+    if (!ready) return;
+    let raf = 0;
+    const tryStart = () => {
+      const canvas = stageRef.current?.querySelector("canvas");
+      if (canvas) startRecording(canvas, () => captionRef.current);
+      else raf = requestAnimationFrame(tryStart);
+    };
+    raf = requestAnimationFrame(tryStart);
+    return () => cancelAnimationFrame(raf);
+  }, [ready, startRecording]);
 
   const handleStudentUtterance = useCallback(
     async (text: string) => {
@@ -90,7 +111,7 @@ export function RehearsalScreen() {
 
         // W2: speak the reply (Polly mp3 if present, else browser TTS).
         setSpeaking(true);
-        if (data.audioUrl) await playAudio(data.audioUrl);
+        if (data.audioUrl) await playCapturable(data.audioUrl);
         else await speakText(data.replyText);
         setSpeaking(false);
       } catch {
@@ -113,7 +134,7 @@ export function RehearsalScreen() {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ turns }),
+        body: JSON.stringify({ turns, eyeContactPct: eyeContactPct() }),
       });
       const report: Report = await res.json();
       setReport(report);
@@ -135,13 +156,33 @@ export function RehearsalScreen() {
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
 
+  // Caption text for the on-stage speech bubbles (CLAUDE.md §5: captions on).
+  const lastTurn = turns[turns.length - 1];
+  const clientName = persona.role.split("—")[1]?.split(",")[0]?.trim() ?? "Client";
+  const clientCaption =
+    [...turns].reverse().find((t) => t.speaker === "client")?.text ?? "";
+  // Live interim while dictating, else the student's last submitted line.
+  const studentCaption = listening
+    ? interim
+    : lastTurn?.speaker === "student"
+      ? lastTurn.text
+      : "";
+  // Mirror the on-screen bubble into the recording compositor.
+  captionRef.current = speaking
+    ? clientCaption
+      ? { name: clientName, text: clientCaption }
+      : null
+    : studentCaption
+      ? { name: "You", text: studentCaption }
+      : null;
+
   return (
     <>
     {hiddenVideo}
     <div className="mx-auto grid w-full max-w-6xl flex-1 gap-4 px-6 py-6 lg:grid-cols-[2fr_1fr]">
       {/* Left: 3D stage — sticky so avatar never drifts when transcript grows */}
       <section className="sticky top-0 flex flex-col gap-4 self-start">
-        <div className="relative h-[60vh] overflow-hidden rounded-2xl bg-[#19102b] ring-1 ring-navy2/10">
+        <div ref={stageRef} className="relative h-[60vh] overflow-hidden rounded-2xl bg-[#19102b] ring-1 ring-navy2/10">
           <AvatarStage
             persona={persona}
             mood={mood}
@@ -150,6 +191,24 @@ export function RehearsalScreen() {
             lookKey={lookKey}
             themeKey={themeKey}
           />
+
+          {/* Speech-bubble captions — client speaks from top, student from bottom */}
+          {speaking && clientCaption && (
+            <SpeechCaption
+              key={`c-${clientCaption}`}
+              text={clientCaption}
+              speaker="client"
+              name={clientName}
+            />
+          )}
+          {!speaking && studentCaption && (
+            <SpeechCaption
+              key={`s-${studentCaption}`}
+              text={studentCaption}
+              speaker="student"
+              name="You"
+            />
+          )}
 
           {/* Persona name badge */}
           <div className="absolute left-4 top-4 rounded-full bg-navy/80 px-3 py-1 text-xs font-medium text-white backdrop-blur">

@@ -14,9 +14,11 @@ export async function POST(req: Request) {
   }
 
   let turns: Turn[] = [];
+  let eyeContactPct: number | undefined;
   try {
     const body = await req.json();
     turns = Array.isArray(body?.turns) ? body.turns : [];
+    if (typeof body?.eyeContactPct === "number") eyeContactPct = body.eyeContactPct;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -37,6 +39,6 @@ export async function POST(req: Request) {
 
   // Real mode: overlay code-computed metrics so report numbers are reproducible
   // from the actual transcript (CLAUDE.md §6).
-  const metrics = computeMetrics(turns);
+  const metrics = computeMetrics(turns, { eyeContactPct });
   return NextResponse.json<Report>({ ...report, metrics });
 }

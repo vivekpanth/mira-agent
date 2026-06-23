@@ -3,8 +3,9 @@
 //
 // MOCK mode: a keyword router (matchArchetype) turns the scenario into a distinct
 //   persona, so "the scenario drives the environment" is true without any cloud.
-// REAL mode: Amazon Bedrock (Claude 3.5 Haiku) generates the persona, in-character
-//   dialogue, and the coaching report prose. lib/metrics.ts still owns the numbers.
+// REAL mode: an LLM generates the persona, in-character dialogue, and the coaching
+//   report prose — Amazon Bedrock (Claude) or, when LLM_PROVIDER=local, an on-device
+//   Ollama model (quota-proof for the demo). lib/metrics.ts still owns the numbers.
 
 import type { ConverseResult, Mood, Persona, Report, Turn } from "@/types";
 import { deriveArchetype, matchArchetype } from "@/lib/archetype";
@@ -226,12 +227,68 @@ function extractJson(raw: string): string {
   return start >= 0 && end > start ? raw.slice(start, end + 1) : raw;
 }
 
+/** Where the LLM prose comes from: "local" = on-device Ollama, else Amazon Bedrock. */
+const LLM_PROVIDER = (process.env.LLM_PROVIDER ?? "bedrock").toLowerCase();
+
+/**
+ * One LLM round-trip (system + user → text). Routes to a local Ollama model when
+ * LLM_PROVIDER=local — quota-proof for the demo — otherwise to Bedrock/Claude.
+ * Both return raw text that the callers parse as JSON via extractJson().
+ */
+async function invokeClaude(system: string, user: string): Promise<string> {
+  if (LLM_PROVIDER === "local") return invokeLocal(system, user);
+  return invokeBedrock(system, user);
+}
+
+/**
+ * Local model via Ollama's REST API (http://localhost:11434 by default).
+ * `format:"json"` constrains output to valid JSON — every caller here asks for JSON,
+ * so this sharply cuts parse failures vs. a raw chat completion.
+ */
+async function invokeLocal(system: string, user: string): Promise<string> {
+  const base = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
+  // Try OLLAMA_MODEL first, then OLLAMA_FALLBACK_MODEL — mirrors the Bedrock chain.
+  // While the primary model is still downloading, Ollama 404s it and we fall back.
+  const models = [
+    process.env.OLLAMA_MODEL ?? "llama3.1:8b",
+    process.env.OLLAMA_FALLBACK_MODEL,
+  ].filter((m): m is string => !!m);
+
+  let lastErr: unknown;
+  for (const model of models) {
+    try {
+      const res = await fetch(`${base}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          model,
+          stream: false,
+          format: "json",
+          options: { num_predict: 1024, temperature: 0.7 },
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error(`ollama ${res.status} ${res.statusText}`);
+      const json = (await res.json()) as { message?: { content?: string } };
+      return json.message?.content ?? "";
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[ollama] ${model} failed, trying next:`, (err as Error).message);
+    }
+  }
+  throw lastErr ?? new Error("invokeLocal: no model configured");
+}
+
 /**
  * Single Bedrock round-trip against Claude (Anthropic messages API).
  * Tries BEDROCK_MODEL_ID first, then BEDROCK_FALLBACK_MODEL_ID — so a per-model
  * daily-token throttle (common on new accounts) auto-fails over to the next model.
  */
-async function invokeClaude(system: string, user: string): Promise<string> {
+async function invokeBedrock(system: string, user: string): Promise<string> {
   // Imported lazily so mock mode never loads the AWS SDK.
   const { BedrockRuntimeClient, InvokeModelCommand } = await import(
     "@aws-sdk/client-bedrock-runtime"
