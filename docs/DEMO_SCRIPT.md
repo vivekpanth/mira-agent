@@ -12,7 +12,7 @@ Rubric coverage: Functionality /30 · UX /20 · Innovation /20 · Educational Im
 
 ## Speaking order & roles
 
-- **Vivek** — opening (AWS + what we built) + close. (the narrative)
+- **Vivek** — opening (what we built + security-first design) + close. (the narrative)
 - **Narendra** — drives the app: types the scenario, speaks the interview turn. (the live demo)
 - **Diwash** — walks the coaching report + downloads the recording. (the payoff)
 
@@ -20,15 +20,17 @@ Rubric coverage: Functionality /30 · UX /20 · Innovation /20 · Educational Im
 
 ## THE SCRIPT (with hooks ⟶)
 
-### 0:00–0:35 — Vivek — What we built + AWS ⟶ _Functionality, Innovation_
+### 0:00–0:35 — Vivek — What we built + security-first design ⟶ _Innovation, Functionality_
 
-> "This is **MIRA** — a virtual client-interaction web app built on **AWS**. We use **Amazon
-> Polly** for the client's natural neural voice, and **Amazon Rekognition** to measure the
-> student's eye contact — and we deliberately run the *conversation* on a **local AI model**, so a
-> student's practice never leaves their device.
+> "This is **MIRA** — a virtual client-interaction web app, and we built it **privacy-first**. The
+> entire conversation runs **on this machine**: the dialogue comes from a **local AI model (Llama
+> 3.1)**, the client's voice is a **local speech model (Kokoro)**, and speech-to-text runs **in the
+> browser**. **Nothing the student says ever leaves the device** — that's the safety guarantee that
+> makes this usable for real, sensitive practice. For the one thing the cloud does best — computer
+> vision — we use **AWS Amazon Rekognition** to analyse the student's eye contact.
 >
-> In one app we built: **scenario-driven 3D environments**, a **live spoken conversation** with the
-> virtual client, **on-screen captions**, **eye-contact and communication analytics**, and a
+> In one app we built: **scenario-driven 3D environments**, a **live, fully-local spoken
+> conversation**, **on-screen captions**, **eye-contact and communication analytics**, and a
 > **downloadable recording** of the whole session.
 >
 > Let me show you with a real scenario every international student knows — landing that first IT
@@ -52,11 +54,11 @@ Rubric coverage: Functionality /30 · UX /20 · Innovation /20 · Educational Im
   > _"Thanks for seeing me. I know my experience is from overseas, but I led a team of four building
   > production systems — let me show you how that transfers."_
 - The client replies **aloud**. Point at the screen:
-  > "That voice is **Amazon Polly** — a real neural voice. The reply comes from a **local Llama 3.1
-  > model running on this machine** — nothing about my answer is sent to any AI company. You can read
-  > everything in the **live captions**, and watch the lighting warm up as I build rapport — the
-  > client's **mood** is shifting. And the whole time, **Amazon Rekognition** is checking my eye
-  > contact through the webcam."
+  > "Everything you just heard is **local**: the reply came from a **Llama 3.1 model on this
+  > machine**, and the voice is **Kokoro, a local speech model** — no audio, no transcript, nothing
+  > about my answer is sent to any cloud or AI company. You can read it in the **live captions**, and
+  > watch the lighting warm up as I build rapport — the client's **mood** is shifting. The only thing
+  > touching the cloud is **AWS Amazon Rekognition**, checking my eye contact through the webcam."
 
 ### 1:55–2:35 — Diwash — The coaching report ⟶ _Educational Impact /20_
 
@@ -74,10 +76,10 @@ Rubric coverage: Functionality /30 · UX /20 · Innovation /20 · Educational Im
   > _(Diwash)_ "Full audio and video of the session — captions burned in — downloadable in one click,
   > up to 30 minutes."
 - **Vivek closes:**
-  > "So: a scenario-driven 3D environment, a live **Amazon Polly** voice and **Amazon Rekognition**
-  > vision, a **private on-device** conversation that protects sensitive data, and an evidence-based
-  > coaching report that actually helps you improve. That's MIRA — practice that's safe, private, and
-  > real. Thank you."
+  > "So: a scenario-driven 3D environment, a **fully on-device conversation** — local dialogue, local
+  > voice, in-browser speech, so sensitive practice data never leaves the machine — with **AWS
+  > Rekognition** adding objective eye-contact analytics, and an evidence-based coaching report that
+  > actually helps you improve. That's MIRA — practice that's **safe, private, and real.** Thank you."
 
 ---
 
@@ -87,7 +89,7 @@ Rubric coverage: Functionality /30 · UX /20 · Innovation /20 · Educational Im
 
 - Mac: **Cmd+Shift+5** → "Record Selected Portion" over the browser window (records screen; use the
   mic for narration). Or **OBS** if you want a webcam talking-head in a corner.
-- Capture system audio too so the Polly voice is in the video (OBS, or QuickTime "New Screen
+- Capture system audio too so the client's voice is in the video (OBS, or QuickTime "New Screen
   Recording" with audio). If unsure, narrate over it — the captions carry the meaning.
 
 **Process (≈15 min):**
@@ -107,13 +109,14 @@ voiced reply + captions + mood shift → report (eye-contact %, quotes, tips) �
 
 ## 🛡️ Judge Q&A prep (1 minute — own these)
 
-- **"Did you use AWS?"** → "Yes — **Amazon Polly** for the client's neural voice and **Amazon
-  Rekognition** for eye-contact analysis, both live. We deliberately keep the _conversation_ on a
-  local model so sensitive practice data never leaves the device — AWS for speech and vision, local
-  for privacy."
-- **"Why a local LLM — isn't cloud better?"** → "For healthcare, counselling and career coaching,
-  the conversation is sensitive. Keeping it on-device means a university can actually deploy this
-  under its data-governance rules. Privacy _is_ the feature."
+- **"Did you use AWS?"** → "Yes — **Amazon Rekognition** for eye-contact analysis, live. We made a
+  deliberate **security** decision to run the whole conversation on-device — dialogue (local Llama),
+  voice (local Kokoro), and speech-to-text (in-browser) — so sensitive practice data never leaves
+  the machine. We use the cloud for vision, where it adds the most value."
+- **"Why run the AI locally — isn't cloud better?"** → "For healthcare, counselling and career
+  coaching, the conversation is sensitive. Keeping the dialogue *and the voice* on-device means a
+  university can actually deploy this under its data-governance rules. **Privacy and security are
+  the feature** — and it also means zero per-conversation cloud cost and it works offline."
 - **"Is the scenario really driving the environment?"** → "The scenario text generates the persona
   live — role, hidden concern, mood, voice — and that drives the 3D room, the avatar, the lighting,
   and the Polly voice. Different scenario, different room and person."
